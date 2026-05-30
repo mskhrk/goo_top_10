@@ -73,10 +73,10 @@
     <h1>Google 表單連動抽獎轉盤</h1>
     
     <div class="controls">
-        <label for="column-select">請選擇抽獎欄位：</label>
+        <label for="column-select">請選擇抽獎項目：</label>
         <select id="column-select" onchange="switchColumn()">
-            <option value="1">B 欄選項 (B2:B11)</option>
-            <option value="2">C 欄選項 (C2:C11)</option>
+            <option value="1">讀取中...</option>
+            <option value="2">讀取中...</option>
         </select>
         <button id="spin-btn" onclick="spinWheel()" disabled>讀取資料中...</button>
     </div>
@@ -89,11 +89,10 @@
     <div id="result"></div>
 
     <script>
-        // 已自動帶入您提供的 Google 試算表 CSV 網址
         const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTTiOhVebcaxbl9tAumV4RswFvXEB2NgpYJoipVaDPxEkKUcMo1msZEnHGHmEdRDn_8btliimScGy-i/pub?gid=0&single=true&output=csv"; 
 
-        let rawRows = []; // 儲存所有原始資料行
-        let options = []; // 儲存當前轉盤的有效選項
+        let rawRows = []; 
+        let options = []; 
         
         const canvas = document.getElementById('wheel');
         const ctx = canvas.getContext('2d');
@@ -104,38 +103,41 @@
         let currentAngle = 0;
         let isSpinning = false;
 
-        // 立即抓取資料
         fetchData();
 
-        // 從 Google 試算表抓取資料
         async function fetchData() {
             try {
                 const response = await fetch(csvUrl);
                 const data = await response.text();
                 
-                // 解析 CSV 將每一行切開，並用逗號分割成欄位
+                // 解析 CSV 資料
                 rawRows = data.split('\n').map(row => row.split(','));
                 
-                // 抓取完畢後，預設載入 B 欄 (欄位索引 1)
+                // 動態更新下拉選單的選項名稱（抓取 B1 與 C1，若無內容則用預設字串）
+                const b1Title = (rawRows[0] && rawRows[0][1]) ? rawRows[0][1].trim() : "B 欄項目";
+                const c1Title = (rawRows[0] && rawRows[0][2]) ? rawRows[0][2].trim() : "C 欄項目";
+                
+                columnSelect.options[0].text = b1Title;
+                columnSelect.options[1].text = c1Title;
+                
+                // 預設載入 B 欄資料
                 switchColumn();
             } catch (error) {
                 console.error("資料抓取失敗:", error);
-                resultDiv.innerText = "無法讀切 Google 表單資料，請檢查網路或網址。";
+                resultDiv.innerText = "無法讀取 Google 表單資料，請檢查網路或網址。";
             }
         }
 
-        // 切換欄位邏輯
         function switchColumn() {
             if (rawRows.length === 0) return;
             
             const colIndex = parseInt(columnSelect.value); // 1 代表 B 欄, 2 代表 C 欄
             options = [];
 
-            // 限制讀取第 2 列到第 11 列 (程式索引為 1 到 10)
+            // 限制讀取第 2 列到第 11 列 (i = 1 到 10)
             for (let i = 1; i <= 10; i++) {
                 if (rawRows[i] && rawRows[i][colIndex]) {
                     const value = rawRows[i][colIndex].trim();
-                    // 只要不是空的，就塞進轉盤選項
                     if (value !== "") {
                         options.push(value);
                     }
@@ -145,7 +147,6 @@
             if (options.length === 0) {
                 resultDiv.innerText = "該欄位目前沒有任何有效數據！";
                 btn.disabled = true;
-                // 畫一個空的白轉盤
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             } else {
                 resultDiv.innerText = "";
@@ -159,7 +160,6 @@
             drawWheel(0);
         }
 
-        // 畫轉盤
         function drawWheel(currentAngle) {
             const numSegments = options.length;
             if (numSegments === 0) return;
@@ -180,7 +180,6 @@
                 ctx.fill();
                 ctx.stroke();
 
-                // 寫文字
                 ctx.save();
                 ctx.fillStyle = 'white';
                 ctx.font = 'bold 14px Arial';
@@ -192,23 +191,22 @@
             ctx.restore();
         }
 
-        // 轉動轉盤
         function spinWheel() {
             if (isSpinning || options.length === 0) return;
             isSpinning = true;
             btn.disabled = true;
-            columnSelect.disabled = true; // 旋轉時禁用切換
+            columnSelect.disabled = true; 
             resultDiv.innerText = "";
 
-            const totalRotation = 2 * Math.PI * 5 + Math.random() * 2 * Math.PI; // 轉 5 圈 + 隨機角度
-            const duration = 4000; // 轉動 4 秒
+            const totalRotation = 2 * Math.PI * 5 + Math.random() * 2 * Math.PI; 
+            const duration = 4000; 
             const startTime = performance.now();
 
             function animate(currentTime) {
                 const elapsed = currentTime - startTime;
                 if (elapsed < duration) {
                     const progress = elapsed / duration;
-                    const easeOut = 1 - Math.pow(1 - progress, 3); // 減速效果
+                    const easeOut = 1 - Math.pow(1 - progress, 3); 
                     const angle = totalRotation * easeOut;
                     drawWheel(angle);
                     requestAnimationFrame(animate);
@@ -227,7 +225,7 @@
                     resultDiv.innerText = `🎉 恭喜中獎：${options[winningIndex]} !`;
                     isSpinning = false;
                     btn.disabled = false;
-                    columnSelect.disabled = false; // 恢復切換功能
+                    columnSelect.disabled = false; 
                 }
             }
             requestAnimationFrame(animate);
