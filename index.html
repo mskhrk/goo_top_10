@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線上Google表單抽獎轉盤</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+        #wheel-container {
+            position: relative;
+            margin: 20px;
+        }
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            background-color: white;
+        }
+        #pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #ff4757;
+            z-index: 10;
+        }
+        button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #2ed573;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: 0.2s;
+        }
+        button:hover { background-color: #26af5f; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Google 表單連動抽獎轉盤</h1>
+    <button id="spin-btn" onclick="spinWheel()" disabled>讀取資料中...</button>
+    
+    <div id="wheel-container">
+        <div id="pointer"></div>
+        <canvas id="wheel" width="400" height="400"></canvas>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        // ⚠️ 請在此處貼上你從 Google 試算表發布到網路的 CSV 網址
+        const csvUrl = "這裡放你剛剛複製的CSV網址"; 
+
+        let options = [];
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('spin-btn');
+        const resultDiv = document.getElementById('result');
+        
+        let currentAngle = 0;
+        let isSpinning = false;
+
+        // 溫馨提示：如果還沒貼上網址，先用預設範例資料擋一下
+        if(csvUrl.includes("這裡放你")) {
+            options = ["請先設定CSV網址", "測試獎項A", "測試獎項B", "測試獎項C"];
+            initWheel();
+        } else {
+            fetchData();
+        }
+
+        // 從 Google 試算表抓取資料
+        async function fetchData() {
+            try {
+                const response = await fetch(csvUrl);
+                const data = await response.text();
+                
+                // 解析 CSV (假設資料在第一欄，跳過第一列標題)
+                const rows = data.split('\n').map(row => row.split(',')[0].trim());
+                options = rows.slice(1).filter(item => item !== ""); 
+
+                if (options.length === 0) {
+                    resultDiv.innerText = "試算表中沒有找到有效的資料項目！";
+                    return;
+                }
+                
+                initWheel();
+            } catch (error) {
+                console.error("資料抓取失敗:", error);
+                resultDiv.innerText = "無法讀取 Google 表單資料，請檢查網址是否正確。";
+            }
+        }
+
+        function initWheel() {
+            drawWheel(0);
+            btn.disabled = false;
+            btn.innerText = "開始抽獎！";
+        }
+
+        // 畫轉盤
+        function drawWheel(currentAngle) {
+            const numSegments = options.length;
+            const segmentAngle = (2 * Math.PI) / numSegments;
+            const colors = ['#ff4757', '#ffa502', '#2ed573', '#1e90ff', '#3742fa', '#9b59b6'];
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(currentAngle);
+
+            for (let i = 0; i < numSegments; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, canvas.width / 2, i * segmentAngle, (i + 1) * segmentAngle);
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.stroke();
+
+                // 寫文字
+                ctx.save();
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'right';
+                ctx.rotate(i * segmentAngle + segmentAngle / 2);
+                ctx.fillText(options[i], canvas.width / 2 - 20, 5);
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        // 轉動轉盘
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            btn.disabled = true;
+            resultDiv.innerText = "";
+
+            const totalRotation = 2 * Math.PI * 5 + Math.random() * 2 * Math.PI; // 旋轉圈數 + 隨機角度
+            const duration = 4000; // 轉動 4 秒
+            const startTime = performance.now();
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                if (elapsed < duration) {
+                    // 漸慢動畫效果 (Ease-out)
+                    const progress = elapsed / duration;
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    const angle = totalRotation * easeOut;
+                    drawWheel(angle);
+                    requestAnimationFrame(animate);
+                } else {
+                    // 結束旋轉
+                    const finalAngle = totalRotation % (2 * Math.PI);
+                    drawWheel(finalAngle);
+                    
+                    // 計算中獎項目 (指針在正上方，即 -90 度或 1.5 * Math.PI 的位置)
+                    const numSegments = options.length;
+                    const segmentAngle = (2 * Math.PI) / numSegments;
+                    
+                    // 修正角度算索引
+                    let targetAngle = (3 * Math.PI / 2 - finalAngle) % (2 * Math.PI);
+                    if (targetAngle < 0) targetAngle += 2 * Math.PI;
+                    
+                    const winningIndex = Math.floor(targetAngle / segmentAngle) % numSegments;
+                    
+                    resultDiv.innerText = `🎉 恭喜中獎：${options[winningIndex]} !`;
+                    isSpinning = false;
+                    btn.disabled = false;
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
